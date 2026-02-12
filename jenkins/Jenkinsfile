@@ -2,7 +2,8 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_NAME = "sparta-app"
+    IMAGE_NAME = "jrodga1604/sparta-app"
+    DOCKER_CREDS = "dockerhub-creds"
   }
 
   stages {
@@ -16,8 +17,26 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         dir('app') {
-          sh 'docker build -t jrodga1604/sparta-app .'
+          sh 'docker build -t jrodga1604/sparta-app:latest .'
         }
+      }
+    }
+
+    stage('Login to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: DOCKER_CREDS,
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+        }
+      }
+    }
+
+    stage('Push Image') {
+      steps {
+        sh 'docker push jrodga1604/sparta-app:latest'
       }
     }
 

@@ -64,7 +64,7 @@ If we didn’t use a volume:
 
 Run jenkins:
 ```bash
-docker run -d --name jenkins -p 8080:8080 -p 50000:50000 -v jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock jenkins/jenkins:lts
+docker run -d --name jenkins -p 8080:8080 -p 50000:50000 -u root -v jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock jenkins/jenkins:lts
 ```
 **really long let me breakdown for you :**
 
@@ -73,10 +73,43 @@ docker run -d \
   --name jenkins \
   -p 8080:8080 \
   -p 50000:50000 \
+  -u root \
   -v jenkins_home:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  jenkins/jenkins:lts
+  my-jenkins-docker
+
 ```
+**What `-u` root does**
+
+This flag runs the Jenkins container as the root user.
+
+Root has permission to access:
+```arduino
+/var/run/docker.sock
+```
+This allows Jenkins to execute:
+
+- docker build
+
+- docker run
+
+- docker push
+
+- docker compose
+
+### Why This Is Not Suitable for Production
+
+Running CI/CD systems as root is not recommended in production environments because:
+
+- It bypasses Linux security controls
+
+- It increases the attack surface
+
+- If Jenkins is compromised, the attacker gains root-level access to Docker
+
+- Docker socket access effectively grants host-level control
+
+In enterprise environments, this would be considered a security risk.
 
 `-p 8080:8080`
 
@@ -186,3 +219,324 @@ configuration for your first job to chek it work:
 - select new job
 - type: pipeline 
 ![img](../img-documentation/new-jenkins-doc.png)
+
+# PHASE 2 — Build Sparta App Docker Image with Jenkins (Clean Start)
+
+### STEP 1 — Confirm Project Structure
+
+Your repository should look like this:
+
+```csharp
+sparta-with-jenkins/
+│
+├── app/
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── app.js
+│   ├── seeds/
+│   ├── models/
+│   └── ...
+│
+└── jenkins/
+    └── Jenkinsfile
+```
+Important:
+
+- `Dockerfile` must be inside `app/`
+
+- It must be named exactly: `Dockerfile` (capital D)
+
+- No extension
+##
+### STEP 2 — Fix Dockerfile (Correct Build Order)
+
+So your app/Dockerfile must be:
+
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /usr/src/app
+
+# Copy everything first (so seeds exist)
+COPY . .
+
+# Then install dependencies
+RUN npm install
+
+EXPOSE 3000
+
+CMD ["node", "app.js"]
+```
+commit the changes:
+```bash
+git add .
+git commit -m "Fix Dockerfile build order"
+git push
+```
+##
+### STEP3 - Clean Jenkinsfile
+Replace your `jenkins/Jenkinsfile` with this minimal clean version:
+```groovy
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_NAME = "jrodga1604/sparta-app"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        dir('app') {
+          sh 'docker build -t $IMAGE_NAME:latest .'
+        }
+      }
+    }
+
+  }
+}
+```
+
+once again commit and push
+
+```bash
+git add .
+git commit -m "Phase 2 clean build pipeline"
+git push
+```
+##
+### STEP 5 — Run Pipeline
+
+Click:
+
+Build Now
+
+Watch console.
+
+You should see:
+```bash
+Step 1/...
+Successfully built ...
+Successfully tagged jrodga1604/sparta-app:latest
+```
+![img](../img-documentation/succes-first-job.png)
+
+##
+### STEP 6 — Verify on Host
+
+Run on your machine:
+```bash
+docker images
+```
+![img](<../img-documentation/Screenshot 2026-02-12 at 17.30.44.png>)
+
+# PHASE 3 — Push Docker Image to Docker Hub
+
+### Objective
+
+After this phase:
+
+- Every push to main
+
+- Jenkins builds your image
+
+- Jenkins logs in to Docker Hub securely
+
+- Jenkins pushes the image
+
+- Image becomes available globally
+
+Architecture now becomes:
+
+```markdown
+Developer → GitHub → Jenkins
+                          ↓
+                   docker build
+                          ↓
+                    docker push
+                          ↓
+                     Docker Hub
+```
+##
+### STEP 1 — Create Docker Hub Access Token
+
+Go to Docker Hub:
+
+Account Settings → Security → Access Tokens → New Token
+
+Create:
+```mathematica
+Name: jenkins-ci
+Permissions: Read & Write
+```
+![img](<../img-documentation/Screenshot 2026-02-12 at 17.45.24.png>)
+**Copy the token.**
+##
+### STEP 2 — Add Docker Hub Credentials in Jenkins
+
+Go to:
+
+Manage Jenkins → Credentials → Global → Add Credentials
+
+Choose:
+
+- Kind: Username with password
+
+- Username: your Docker Hub username (e.g. jrodga1604)
+
+- Password: paste Docker Hub token
+
+- ID: dockerhub-creds
+
+- Description: Docker Hub CI
+
+**Save.**
+![img](../img-documentation/token.png)
+##
+### STEP 3 — Update Jenkinsfile
+
+Replace your current Jenkinsfile with this:
+
+```groovy
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_NAME = "jrodga1604/sparta-app"
+    DOCKER_CREDS = "dockerhub-creds"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        dir('app') {
+          sh 'docker build -t $IMAGE_NAME:latest .'
+        }
+      }
+    }
+
+    stage('Login to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: DOCKER_CREDS,
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+        }
+      }
+    }
+
+    stage('Push Image') {
+      steps {
+        sh 'docker push $IMAGE_NAME:latest'
+      }
+    }
+
+  }
+}
+
+```
+
+### What Changed?
+
+We introduced:
+```scss
+withCredentials(...)
+```
+his tells Jenkins:
+
+- Retrieve stored credentials securely
+
+- Inject them as temporary environment variables
+
+- Use them only inside this block
+
+### Why We Did This
+
+Docker Hub requires authentication before pushing images.
+
+Instead of writing:
+```bash
+docker login -u myusername -p mypassword
+```
+
+(which would expose credentials in logs)
+
+We use Jenkins Credentials Store.
+
+This ensures:
+
+- Password is encrypted
+
+- It is never committed to Git
+
+- It never appears in console output
+
+- It follows secure CI/CD practice
+
+##
+### New Stage Added — Push Image
+
+We added:
+```groovy
+stage('Push Image') {
+  steps {
+    sh 'docker push $IMAGE_NAME:latest'
+  }
+}
+```
+### What Changed?
+
+Previously, we only built:
+```nginx
+docker build
+```
+
+Now we also push:
+```perl
+docker push
+```
+### Why We Did This
+
+The purpose of CI/CD is not just building.
+
+It is:
+
+- Producing a deployable artifact
+
+- Storing it in a registry
+
+- Making it available for production systems
+
+ By pushing to Docker Hub:
+
+- The image becomes globally accessible
+
+- EC2 can pull it
+
+- Kubernetes can pull it
+
+Future environments can use it
+
+now **Commit & push.**
+##
+### STEP 4 — Run Pipeline
+
+Click **Build Now**
+
+You should see:
