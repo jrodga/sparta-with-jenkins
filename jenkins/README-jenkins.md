@@ -248,7 +248,7 @@ Important:
 
 - No extension
 ##
-### STEP 2 — Fix Dockerfile (Correct Build Order)
+### STEP 2 —  Dockerfile 
 
 So your app/Dockerfile must be:
 
@@ -270,7 +270,7 @@ CMD ["node", "app.js"]
 commit the changes:
 ```bash
 git add .
-git commit -m "Fix Dockerfile build order"
+git commit -m " Dockerfile build order"
 git push
 ```
 ##
@@ -424,7 +424,10 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         dir('app') {
-          sh 'docker build -t $IMAGE_NAME:latest .'
+          sh """
+            docker build -t $IMAGE_NAME:$BUILD_NUMBER .
+            docker tag $IMAGE_NAME:$BUILD_NUMBER $IMAGE_NAME:latest
+          """
         }
       }
     }
@@ -443,12 +446,16 @@ pipeline {
 
     stage('Push Image') {
       steps {
-        sh 'docker push $IMAGE_NAME:latest'
+        sh """
+          docker push $IMAGE_NAME:$BUILD_NUMBER
+          docker push $IMAGE_NAME:latest
+        """
       }
     }
 
   }
 }
+
 
 ```
 
@@ -533,6 +540,46 @@ It is:
 
 Future environments can use it
 
+### What we improved
+```perl
+docker push image:$BUILD_NUMBER
+docker push image:latest
+```
+
+We updated the Jenkins pipeline to tag images using:
+
+- The Jenkins BUILD_NUMBER (immutable)
+
+- The latest tag (for convenience)
+
+```bash
+jrodga1604/sparta-app:12
+jrodga1604/sparta-app:latest
+```
+Now:
+
+- Each build produces a uniquely versioned image
+
+- Previous builds remain available
+
+- Rollback is possible
+
+- Deployment becomes reproducible
+
+### Why this is important in CI/CD
+
+Using build numbers provides:
+
+- Traceability (which pipeline produced which image)
+
+- Stability (deploy specific versions)
+
+- Better debugging
+
+- Safer production releases
+
+This follows industry-standard CI/CD practices where artifacts are immutable and versioned.
+
 now **Commit & push.**
 ##
 ### STEP 4 — Run Pipeline
@@ -540,3 +587,22 @@ now **Commit & push.**
 Click **Build Now**
 
 You should see:
+```markfile
+Login Succeeded
+Pushing...
+latest: digest: sha256:...
+```
+##
+### STEP 5 — Verify on Docker Hub
+
+Go to your Docker Hub repo:
+```bash
+https://hub.docker.com/r/jrodga1604/sparta-app
+```
+
+You should see:
+```nginx
+latest
+
+
+Updated recently.

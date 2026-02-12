@@ -17,7 +17,10 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         dir('app') {
-          sh 'docker build -t jrodga1604/sparta-app:latest .'
+          sh """
+            docker build -t $IMAGE_NAME:$BUILD_NUMBER .
+            docker tag $IMAGE_NAME:$BUILD_NUMBER $IMAGE_NAME:latest
+          """
         }
       }
     }
@@ -36,7 +39,10 @@ pipeline {
 
     stage('Push Image') {
       steps {
-        sh 'docker push jrodga1604/sparta-app:latest'
+        sh """
+          docker push $IMAGE_NAME:$BUILD_NUMBER
+          docker push $IMAGE_NAME:latest
+        """
       }
     }
 
