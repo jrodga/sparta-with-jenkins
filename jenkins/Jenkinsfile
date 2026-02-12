@@ -2,12 +2,10 @@ pipeline {
   agent any
 
   stages {
-    stage('Sanity Check') {
+    stage('Test') {
       steps {
-        echo "Jenkins pipeline is running ✅"
-        sh 'docker --version'
+        echo "Pipeline is running"
       }
     }
   }
 }
-
