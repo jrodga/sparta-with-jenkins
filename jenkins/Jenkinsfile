@@ -1,11 +1,25 @@
 pipeline {
   agent any
 
+  environment {
+    IMAGE_NAME = "sparta-app"
+  }
+
   stages {
-    stage('Test') {
+
+    stage('Checkout') {
       steps {
-        echo "Pipeline is running"
+        checkout scm
       }
     }
+
+    stage('Build Docker Image') {
+      steps {
+        dir('app') {
+          sh 'docker build -t jrodga1604/sparta-app .'
+        }
+      }
+    }
+
   }
 }
