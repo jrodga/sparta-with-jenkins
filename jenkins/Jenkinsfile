@@ -4,7 +4,7 @@ pipeline {
   environment {
     IMAGE_NAME = "jrodga1604/sparta-app"
     GIT_CREDS = "github-creds"
-    EC2_IP = "63.33.64.20"
+    EC2_IP = "YOUR_EC2_PUBLIC_IP"
   }
 
   stages {
@@ -30,6 +30,19 @@ pipeline {
       }
     }
 
+    stage('Trigger Promotion Job') {
+      when {
+        expression { env.JOB_NAME == "sparta-ci-feature" }
+      }
+      steps {
+        build job: 'sparta-promote-main',
+              parameters: [
+                string(name: 'FEATURE_BRANCH', value: env.BRANCH_NAME)
+              ],
+              wait: true
+      }
+    }
+
     stage('Merge to Main (Promotion Job Only)') {
       when {
         expression { env.JOB_NAME == "sparta-promote-main" }
@@ -47,7 +60,7 @@ pipeline {
             git checkout main
             git pull https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
 
-            git merge origin/${BRANCH_NAME}
+            git merge origin/${FEATURE_BRANCH}
 
             git push https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
           """
@@ -55,9 +68,9 @@ pipeline {
       }
     }
 
-    stage('Deploy to EC2 (Main Only)') {
+    stage('Deploy to EC2 (Promotion Job Only)') {
       when {
-        branch 'main'
+        expression { env.JOB_NAME == "sparta-promote-main" }
       }
       steps {
         sshagent(credentials: ['ec2-ssh']) {
