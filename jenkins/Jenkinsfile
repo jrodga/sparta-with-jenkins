@@ -9,7 +9,7 @@ pipeline {
   }
 
   parameters {
-    string(name: 'FEATURE_BRANCH', defaultValue: '', description: 'Feature branch to merge')
+    string(name: 'FEATURE_BRANCH', defaultValue: '', description: 'Feature branch passed from CI job')
   }
 
   stages {
@@ -20,13 +20,13 @@ pipeline {
       }
     }
 
-    // ===============================
-    // JOB 1 → CI (feature branches)
-    // ===============================
+    // =========================
+    // JOB 1 → CI (feature)
+    // =========================
 
-    stage('Build & Push (Feature Job Only)') {
+    stage('Build & Push (Feature Only)') {
       when {
-        expression { env.JOB_NAME == "sparta-ci-feature" }
+        expression { !params.FEATURE_BRANCH }
       }
       steps {
         dir('app') {
@@ -46,7 +46,7 @@ pipeline {
 
     stage('Trigger Promotion') {
       when {
-        expression { env.JOB_NAME == "sparta-ci-feature" }
+        expression { !params.FEATURE_BRANCH }
       }
       steps {
         build job: 'sparta-promote-main',
@@ -57,13 +57,13 @@ pipeline {
       }
     }
 
-    // ===============================
-    // JOB 2 → Promotion + Deploy
-    // ===============================
+    // =========================
+    // JOB 2 → Promotion
+    // =========================
 
-    stage('Merge to Main (Promotion Only)') {
+    stage('Merge to Main') {
       when {
-        expression { env.JOB_NAME == "sparta-promote-main" }
+        expression { params.FEATURE_BRANCH }
       }
       steps {
         withCredentials([usernamePassword(
@@ -72,6 +72,8 @@ pipeline {
           passwordVariable: 'GIT_TOKEN'
         )]) {
           sh """
+            echo "Merging branch: ${FEATURE_BRANCH}"
+
             git config user.email "jenkins@local"
             git config user.name "Jenkins"
 
@@ -88,9 +90,9 @@ pipeline {
       }
     }
 
-    stage('Deploy to EC2 (Promotion Only)') {
+    stage('Deploy to EC2') {
       when {
-        expression { env.JOB_NAME == "sparta-promote-main" }
+        expression { params.FEATURE_BRANCH }
       }
       steps {
         sshagent(credentials: ['ec2-ssh']) {
