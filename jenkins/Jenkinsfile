@@ -4,77 +4,42 @@ pipeline {
     environment {
         IMAGE_NAME = "jrodga1604/sparta-app"
         DOCKER_CREDS = "dockerhub-creds"
-        GIT_CREDS = "github-creds"
+        EC2_IP = "YOUR_EC2_IP_HERE"
     }
 
     stages {
 
-        stage('Build & Push (Feature Branches)') {
-            when {
-                not { branch 'main' }
-            }
+        stage('Build & Push Docker Image') {
             steps {
                 dir('app') {
                     sh """
                         docker buildx inspect multi-builder || docker buildx create --use --name multi-builder
                         docker buildx use multi-builder
                         docker buildx build \
-                          --platform linux/amd64 \
-                          -t $IMAGE_NAME:$BUILD_NUMBER \
-                          -t $IMAGE_NAME:latest \
-                          --push .
+                        --platform linux/amd64 \
+                        -t $IMAGE_NAME:${BUILD_NUMBER} \
+                        -t $IMAGE_NAME:latest \
+                        --push .
                     """
                 }
             }
         }
 
-        stage('Trigger Promotion Job') {
-            when {
-                not { branch 'main' }
-            }
-            steps {
-                build job: 'sparta-promote-main',
-                      parameters: [
-                        string(name: 'FEATURE_BRANCH', value: env.BRANCH_NAME)
-                      ],
-                      wait: false
-            }
-        }
-
-        stage('Merge Feature into Main') {
+        stage('Deploy to EC2 (Main Only)') {
             when {
                 branch 'main'
             }
             steps {
-                script {
-                    echo "Promote job triggered. Feature branch: ${params.FEATURE_BRANCH}"
-
-                    withCredentials([usernamePassword(
-                        credentialsId: GIT_CREDS,
-                        usernameVariable: 'GIT_USER',
-                        passwordVariable: 'GIT_PASS'
-                    )]) {
-                        sh """
-                            git config user.email "jenkins@local"
-                            git config user.name "jenkins"
-
-                            git fetch origin ${params.FEATURE_BRANCH}
-                            git checkout main
-                            git merge origin/${params.FEATURE_BRANCH} --no-edit
-                            git push https://${GIT_USER}:${GIT_PASS}@github.com/jrodga/sparta-with-jenkins.git main
-                        """
-                    }
+                sshagent(['ec2-ssh']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
+                            docker pull $IMAGE_NAME:latest &&
+                            docker stop sparta || true &&
+                            docker rm sparta || true &&
+                            docker run -d -p 80:3000 --name sparta $IMAGE_NAME:latest
+                        '
+                    """
                 }
-            }
-        }
-
-        stage('Deploy to EC2') {
-            when {
-                branch 'main'
-            }
-            steps {
-                echo "Deploying latest image to EC2"
-                // your SSH deploy block here
             }
         }
     }
