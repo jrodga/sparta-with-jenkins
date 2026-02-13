@@ -27,6 +27,21 @@ pipeline {
         }
       }
     }
-
+    stage('Deploy to EC2') {
+  when {
+    branch 'main'
+  }
+  steps {
+    sshagent(credentials: ['ec2-ssh']) {
+      sh """
+        ssh -o StrictHostKeyChecking=no ubuntu@63.33.64.20 '
+          docker pull jrodga1604/sparta-app:latest &&
+          docker compose down &&
+          docker compose up -d
+        '
+      """
+    }
+  }
+}
   }
 }

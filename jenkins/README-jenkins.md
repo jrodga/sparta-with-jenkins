@@ -1026,6 +1026,7 @@ sudo apt update
 sudo apt install docker.io -y
 sudo systemctl start docker
 sudo systemctl enable docker
+sudo apt install docker-compose -y
 ```
 Add ubuntu user to docker group:
 ```bash
@@ -1053,4 +1054,81 @@ On EC2:
 ```bash
 docker pull jrodga1604/sparta-app:latest
 docker compose up -d
+docker ps
 ```
+![img](../img-documentation/docker-runing.png)
+
+Visit:
+```cpp
+http://EC2_PUBLIC_IP:3000
+```
+
+If working → EC2 is ready.
+![img](../img-documentation/sparta-working-ec2.png)
+##
+### STEP 4 — Add SSH Credentials in Jenkins
+
+Go to:
+
+Manage Jenkins → Credentials → Global → Add Credentials
+
+Kind:
+```vbnet
+SSH Username with private key
+```
+
+- Username: ubuntu
+
+- Private key: paste EC2 .pem key
+
+- ID: ec2-ssh
+
+- Add the value of your pem key (**DO NOT SHARE**)
+![img](../img-documentation/jenkis-shh.png)
+
+**Save.**
+
+##
+### STEP 5 — Update Jenkinsfile (Main Job Only)
+
+In your main branch job, add:
+```groovy
+stage('Deploy to EC2') {
+  when {
+    branch 'main'
+  }
+  steps {
+    sshagent(credentials: ['ec2-ssh']) {
+      sh """
+        ssh -o StrictHostKeyChecking=no ubuntu@YOUR_EC2_IP '
+          docker pull jrodga1604/sparta-app:latest &&
+          docker compose down &&
+          docker compose up -d
+        '
+      """
+    }
+  }
+}
+```
+
+Replace:
+```nginx
+YOUR_EC2_IP
+```
+##
+
+### What This Does
+
+When main builds:
+
+1. Jenkins logs into EC2
+
+2. Pulls latest image
+
+3. Stops running container
+
+4. Starts new container
+
+Fully automated deployment.
+
+You’ve already noticed that hardcoding the EC2 IP isn’t a good practice, but this will be resolved when we move to Kubernetes in the next steps.
