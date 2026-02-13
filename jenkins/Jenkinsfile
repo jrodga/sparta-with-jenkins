@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = "jrodga1604/sparta-app"
         DOCKER_CREDS = "dockerhub-creds"
-        EC2_IP = "63.33.64.20"
+        EC2_HOST = "63.33.64.20"
     }
 
     stages {
