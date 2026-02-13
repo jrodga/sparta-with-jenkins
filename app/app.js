@@ -44,9 +44,10 @@ app.get('/fibonacci/:n' , function(req,res){
 //   });
 // });
 
-app.listen(3000 , function(){
-  console.log('Your app is ready and listening on port 3000');
+app.listen(3000, '0.0.0.0', () => {
+  console.log('Server running');
 });
+
 
 
 // deliberately poorly implemented fibonnaci
