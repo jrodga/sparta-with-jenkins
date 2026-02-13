@@ -1,111 +1,75 @@
-pipeline {
-  agent any
-
-  environment {
-    IMAGE_NAME = "jrodga1604/sparta-app"
-    DOCKER_CREDS = "dockerhub-creds"
-    GIT_CREDS = "github-creds"
-    EC2_IP = "YOUR_EC2_PUBLIC_IP"
+stage('Build & Push (Feature Only)') {
+  when {
+    expression { env.BRANCH_NAME?.startsWith("feature-") }
   }
+  steps {
+    dir('app') {
+      sh """
+        docker buildx inspect multi-builder >/dev/null 2>&1 || docker buildx create --use --name multi-builder
+        docker buildx use multi-builder
 
-  parameters {
-    string(name: 'FEATURE_BRANCH', defaultValue: '', description: 'Feature branch passed from CI job')
+        docker buildx build \
+          --platform linux/amd64 \
+          -t $IMAGE_NAME:$BUILD_NUMBER \
+          -t $IMAGE_NAME:latest \
+          --push .
+      """
+    }
   }
+}
+stage('Trigger Promotion') {
+  when {
+    expression { env.BRANCH_NAME?.startsWith("feature-") }
+  }
+  steps {
+    build job: 'sparta-promote-main',
+          parameters: [
+            string(name: 'FEATURE_BRANCH', value: env.BRANCH_NAME)
+          ],
+          wait: true
+  }
+}
+stage('Merge to Main') {
+  when {
+    expression { env.BRANCH_NAME == "main" && params.FEATURE_BRANCH }
+  }
+  steps {
+    withCredentials([usernamePassword(
+      credentialsId: GIT_CREDS,
+      usernameVariable: 'GIT_USER',
+      passwordVariable: 'GIT_TOKEN'
+    )]) {
+      sh """
+        echo "Merging branch: ${FEATURE_BRANCH}"
 
-  stages {
+        git config user.email "jenkins@local"
+        git config user.name "Jenkins"
 
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+        git fetch origin
+
+        git checkout main
+        git pull https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
+
+        git merge origin/${FEATURE_BRANCH}
+
+        git push https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
+      """
     }
-
-    // =========================
-    // JOB 1 → CI (feature)
-    // =========================
-
-    stage('Build & Push (Feature Only)') {
-      when {
-        expression { !params.FEATURE_BRANCH }
-      }
-      steps {
-        dir('app') {
-          sh """
-            docker buildx inspect multi-builder >/dev/null 2>&1 || docker buildx create --use --name multi-builder
-            docker buildx use multi-builder
-
-            docker buildx build \
-              --platform linux/amd64 \
-              -t $IMAGE_NAME:$BUILD_NUMBER \
-              -t $IMAGE_NAME:latest \
-              --push .
-          """
-        }
-      }
+  }
+}
+stage('Deploy to EC2') {
+  when {
+    expression { env.BRANCH_NAME == "main" }
+  }
+  steps {
+    sshagent(credentials: ['ec2-ssh']) {
+      sh """
+        ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP '
+          docker pull $IMAGE_NAME:latest &&
+          docker compose down &&
+          docker compose up -d
+        '
+      """
     }
-
-    stage('Trigger Promotion') {
-      when {
-        expression { !params.FEATURE_BRANCH }
-      }
-      steps {
-        build job: 'sparta-promote-main',
-              parameters: [
-                string(name: 'FEATURE_BRANCH', value: env.BRANCH_NAME)
-              ],
-              wait: true
-      }
-    }
-
-    // =========================
-    // JOB 2 → Promotion
-    // =========================
-
-    stage('Merge to Main') {
-      when {
-        expression { params.FEATURE_BRANCH }
-      }
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: GIT_CREDS,
-          usernameVariable: 'GIT_USER',
-          passwordVariable: 'GIT_TOKEN'
-        )]) {
-          sh """
-            echo "Merging branch: ${FEATURE_BRANCH}"
-
-            git config user.email "jenkins@local"
-            git config user.name "Jenkins"
-
-            git fetch origin
-
-            git checkout main
-            git pull https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
-
-            git merge origin/${FEATURE_BRANCH}
-
-            git push https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
-          """
-        }
-      }
-    }
-
-    stage('Deploy to EC2') {
-      when {
-        expression { params.FEATURE_BRANCH }
-      }
-      steps {
-        sshagent(credentials: ['ec2-ssh']) {
-          sh """
-            ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP '
-              docker pull $IMAGE_NAME:latest &&
-              docker compose down &&
-              docker compose up -d
-            '
-          """
-        }
-      }
-    }
-
   }
 }
