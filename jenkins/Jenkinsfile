@@ -3,6 +3,7 @@ pipeline {
 
   environment {
     IMAGE_NAME = "jrodga1604/sparta-app"
+    DOCKER_CREDS = "dockerhub-creds"
     GIT_CREDS = "github-creds"
     EC2_IP = "YOUR_EC2_PUBLIC_IP"
   }
@@ -19,7 +20,11 @@ pipeline {
       }
     }
 
-    stage('Build Docker Image') {
+    // ===============================
+    // JOB 1 → CI (feature branches)
+    // ===============================
+
+    stage('Build & Push (Feature Job Only)') {
       when {
         expression { env.JOB_NAME == "sparta-ci-feature" }
       }
@@ -39,7 +44,7 @@ pipeline {
       }
     }
 
-    stage('Trigger Promotion Job') {
+    stage('Trigger Promotion') {
       when {
         expression { env.JOB_NAME == "sparta-ci-feature" }
       }
@@ -52,7 +57,11 @@ pipeline {
       }
     }
 
-    stage('Merge to Main') {
+    // ===============================
+    // JOB 2 → Promotion + Deploy
+    // ===============================
+
+    stage('Merge to Main (Promotion Only)') {
       when {
         expression { env.JOB_NAME == "sparta-promote-main" }
       }
@@ -79,7 +88,7 @@ pipeline {
       }
     }
 
-    stage('Deploy to EC2') {
+    stage('Deploy to EC2 (Promotion Only)') {
       when {
         expression { env.JOB_NAME == "sparta-promote-main" }
       }
