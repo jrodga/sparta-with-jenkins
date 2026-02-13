@@ -3,7 +3,6 @@ pipeline {
 
   environment {
     IMAGE_NAME = "jrodga1604/sparta-app"
-    DOCKER_CREDS = "dockerhub-creds"
   }
 
   stages {
@@ -14,35 +13,18 @@ pipeline {
       }
     }
 
-    stage('Build Docker Image') {
+    stage('Build and Push Docker Image (amd64)') {
       steps {
         dir('app') {
           sh """
-            docker build -t $IMAGE_NAME:$BUILD_NUMBER .
-            docker tag $IMAGE_NAME:$BUILD_NUMBER $IMAGE_NAME:latest
+            docker buildx create --use --name multi-builder || true
+            docker buildx build \
+              --platform linux/amd64 \
+              -t $IMAGE_NAME:$BUILD_NUMBER \
+              -t $IMAGE_NAME:latest \
+              --push .
           """
         }
-      }
-    }
-
-    stage('Login to Docker Hub') {
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: DOCKER_CREDS,
-          usernameVariable: 'DOCKER_USER',
-          passwordVariable: 'DOCKER_PASS'
-        )]) {
-          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-        }
-      }
-    }
-
-    stage('Push Image') {
-      steps {
-        sh """
-          docker push $IMAGE_NAME:$BUILD_NUMBER
-          docker push $IMAGE_NAME:latest
-        """
       }
     }
 
