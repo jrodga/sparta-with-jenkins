@@ -1132,3 +1132,136 @@ When main builds:
 Fully automated deployment.
 
 You’ve already noticed that hardcoding the EC2 IP isn’t a good practice, but this will be resolved when we move to Kubernetes in the next steps.
+
+## 
+### Before we move to Kubernetes
+### Add one job more that will merge the branches if the previus is success 
+
+```css
+️ Push to feature branch
+        ↓
+Job 1 → CI (build & test only)
+        ↓ (if SUCCESS)
+️ Job 2 → Merge feature → main
+        ↓
+Deploy new main
+
+```
+
+### Important Before Doing This
+
+Make sure:
+
+- Job 1 builds only feature-*
+
+- Job 2 builds only main
+
+- Jenkins has GitHub credentials with push access
+
+Otherwise it won’t be able to merge.
+
+### Add GitHub Credentials in Jenkins
+
+Manage Jenkins → Credentials → Global → Add
+![img](../img-documentation/token-github.png)
+Type:
+```nginx
+Username + Personal Access Token
+```
+
+ID:
+```
+github-creds
+````
+
+You need a GitHub Personal Access Token with:
+``` nginx
+repo
+```
+![img](../img-documentation/repo.png)
+permissions.
+##
+### Modify Job 1 Jenkinsfile (CI Feature)
+
+We add merge stage at the end.
+
+Here is the updated version:
+
+```groovy
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_NAME = "jrodga1604/sparta-app"
+    GIT_CREDS = "github-creds"
+    EC2_IP = "YOUR_EC2_PUBLIC_IP"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        dir('app') {
+          sh """
+            docker buildx create --use --name multi-builder || true
+            docker buildx build \
+              --platform linux/amd64 \
+              -t $IMAGE_NAME:$BUILD_NUMBER \
+              -t $IMAGE_NAME:latest \
+              --push .
+          """
+        }
+      }
+    }
+
+    stage('Merge to Main (Promotion Job Only)') {
+      when {
+        expression { env.JOB_NAME == "sparta-promote-main" }
+      }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: GIT_CREDS,
+          usernameVariable: 'GIT_USER',
+          passwordVariable: 'GIT_TOKEN'
+        )]) {
+          sh """
+            git config user.email "jenkins@local"
+            git config user.name "Jenkins"
+
+            git checkout main
+            git pull https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
+
+            git merge origin/${BRANCH_NAME}
+
+            git push https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
+          """
+        }
+      }
+    }
+
+    stage('Deploy to EC2 (Main Only)') {
+      when {
+        branch 'main'
+      }
+      steps {
+        sshagent(credentials: ['ec2-ssh']) {
+          sh """
+            ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP '
+              docker pull $IMAGE_NAME:latest &&
+              docker compose down &&
+              docker compose up -d
+            '
+          """
+        }
+      }
+    }
+
+  }
+}
+```

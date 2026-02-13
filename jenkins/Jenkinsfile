@@ -3,6 +3,8 @@ pipeline {
 
   environment {
     IMAGE_NAME = "jrodga1604/sparta-app"
+    GIT_CREDS = "github-creds"
+    EC2_IP = "63.33.64.20"
   }
 
   stages {
@@ -13,7 +15,7 @@ pipeline {
       }
     }
 
-    stage('Build and Push Docker Image (amd64)') {
+    stage('Build Docker Image') {
       steps {
         dir('app') {
           sh """
@@ -27,21 +29,48 @@ pipeline {
         }
       }
     }
-    stage('Deploy to EC2') {
-  when {
-    branch 'main'
-  }
-  steps {
-    sshagent(credentials: ['ec2-ssh']) {
-      sh """
-        ssh -o StrictHostKeyChecking=no ubuntu@63.33.64.20 '
-          docker pull jrodga1604/sparta-app:latest &&
-          docker compose down &&
-          docker compose up -d
-        '
-      """
+
+    stage('Merge to Main (Promotion Job Only)') {
+      when {
+        expression { env.JOB_NAME == "sparta-promote-main" }
+      }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: GIT_CREDS,
+          usernameVariable: 'GIT_USER',
+          passwordVariable: 'GIT_TOKEN'
+        )]) {
+          sh """
+            git config user.email "jenkins@local"
+            git config user.name "Jenkins"
+
+            git checkout main
+            git pull https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
+
+            git merge origin/${BRANCH_NAME}
+
+            git push https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
+          """
+        }
+      }
     }
-  }
-}
+
+    stage('Deploy to EC2 (Main Only)') {
+      when {
+        branch 'main'
+      }
+      steps {
+        sshagent(credentials: ['ec2-ssh']) {
+          sh """
+            ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP '
+              docker pull $IMAGE_NAME:latest &&
+              docker compose down &&
+              docker compose up -d
+            '
+          """
+        }
+      }
+    }
+
   }
 }
