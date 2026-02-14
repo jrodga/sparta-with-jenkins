@@ -4,7 +4,7 @@ pipeline {
   environment {
     IMAGE_NAME = "jrodga1604/sparta-app"
     GIT_CREDS = "github-creds"
-    EC2_IP = "63.35.196.69"
+    EC2_HOST = "63.35.196.69"
   }
 
   stages {
@@ -62,10 +62,10 @@ pipeline {
       steps {
         sshagent(credentials: ['ec2-ssh']) {
           sh """
-            ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP '
+            ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
               docker pull $IMAGE_NAME:latest &&
-              docker compose down &&
-              docker compose up -d
+              docker-compose down &&
+              docker-compose up -d
             '
           """
         }
