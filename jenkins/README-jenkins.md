@@ -1307,7 +1307,4 @@ pipeline {
   }
 }
 ```
-<<<<<<< HEAD
 last update
-=======
->>>>>>> a18a540 (update documentation)
