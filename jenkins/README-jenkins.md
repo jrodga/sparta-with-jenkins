@@ -726,11 +726,7 @@ You will see:
 ```nginx
 Forwarding https://abcd-1234.ngrok.io -> http://localhost:8080
 ```
-<<<<<<< HEAD
 ![img](<../img-documentation/Screenshot 2026-02-13 at 08.29.39.png>)
-=======
-![img](../img-documentation/ngrock.png)
->>>>>>> a18a540 (update documentation)
 Copy the HTTPS URL.
 ##
 ### Configure GitHub Webhook
@@ -1020,13 +1016,9 @@ Launch EC2:
 
     - 3000 (app)
 
-<<<<<<< HEAD
-![img](../img-documentation/ec2-sg.png)
-=======
     - 80 (depploy updates)
 
 ![img](../img-documentation/sg.png)
->>>>>>> a18a540 (update documentation)
 
 - I use this from anywhere because it is experimental and for practice purposes, **not suitable for production.**
 ### Install Docker on EC2
@@ -1037,12 +1029,6 @@ sudo apt install docker.io -y
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo apt install docker-compose -y
-<<<<<<< HEAD
-=======
-sudo apt update
-sudo apt install docker-compose-plugin -y
-
->>>>>>> a18a540 (update documentation)
 ```
 Add ubuntu user to docker group:
 ```bash
@@ -1062,11 +1048,7 @@ On EC2:
 ```bash
 nano docker-compose.yml
 ```
-<<<<<<< HEAD
 ![img](../img-documentation/nano-document.png)
-=======
-![img](../img-documentation/docker-nano.png)
->>>>>>> a18a540 (update documentation)
 
 ##
 ### STEP 3 — Test Manual Deployment
@@ -1076,11 +1058,7 @@ docker pull jrodga1604/sparta-app:latest
 docker compose up -d
 docker ps
 ```
-<<<<<<< HEAD
 ![img](../img-documentation/docker-runing.png)
-=======
-![img](../img-documentation/docker-running.png)
->>>>>>> a18a540 (update documentation)
 
 Visit:
 ```cpp
@@ -1088,11 +1066,7 @@ http://EC2_PUBLIC_IP:3000
 ```
 
 If working → EC2 is ready.
-<<<<<<< HEAD
 ![img](../img-documentation/sparta-working-ec2.png)
-=======
-![img](../img-documentation/app-running-manual.png)
->>>>>>> a18a540 (update documentation)
 ##
 ### STEP 4 — Add SSH Credentials in Jenkins
 
@@ -1112,12 +1086,7 @@ SSH Username with private key
 - ID: ec2-ssh
 
 - Add the value of your pem key (**DO NOT SHARE**)
-<<<<<<< HEAD
 ![img](../img-documentation/jenkis-shh.png)
-=======
-
-![alt text](../img-documentation/ss-key-conf.png)
->>>>>>> a18a540 (update documentation)
 
 **Save.**
 
@@ -1196,12 +1165,7 @@ Otherwise it won’t be able to merge.
 ### Add GitHub Credentials in Jenkins
 
 Manage Jenkins → Credentials → Global → Add
-<<<<<<< HEAD
 ![img](../img-documentation/token-github.png)
-=======
-
-
->>>>>>> a18a540 (update documentation)
 Type:
 ```nginx
 Username + Personal Access Token
@@ -1216,11 +1180,7 @@ You need a GitHub Personal Access Token with:
 ``` nginx
 repo
 ```
-<<<<<<< HEAD
 ![img](../img-documentation/repo.png)
-=======
-![alt text](../img-documentation/gtithub-token.png)
->>>>>>> a18a540 (update documentation)
 permissions.
 ##
 ### Modify Job 1 Jenkinsfile (CI Feature)
@@ -1307,7 +1267,4 @@ pipeline {
   }
 }
 ```
-<<<<<<< HEAD
 last update
-=======
->>>>>>> a18a540 (update documentation)
