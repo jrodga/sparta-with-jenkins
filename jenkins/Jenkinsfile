@@ -1,47 +1,76 @@
 pipeline {
-    agent any
+  agent any
 
-    environment {
-        IMAGE_NAME = "jrodga1604/sparta-app"
-        DOCKER_CREDS = "dockerhub-creds"
-        EC2_HOST = "63.33.64.20"
+  environment {
+    IMAGE_NAME = "jrodga1604/sparta-app"
+    GIT_CREDS = "github-creds"
+    EC2_IP = "63.35.196.69"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
     }
 
-    stages {
-
-        stage('Build & Push Docker Image') {
-            steps {
-                dir('app') {
-                    sh """
-                        docker buildx inspect multi-builder || docker buildx create --use --name multi-builder
-                        docker buildx use multi-builder
-                        docker buildx build \
-                        --platform linux/amd64 \
-                        -t $IMAGE_NAME:${BUILD_NUMBER} \
-                        -t $IMAGE_NAME:latest \
-                        --push .
-                    """
-                }
-            }
+    stage('Build Docker Image') {
+      steps {
+        dir('app') {
+          sh """
+            docker buildx create --use --name multi-builder || true
+            docker buildx build \
+              --platform linux/amd64 \
+              -t $IMAGE_NAME:$BUILD_NUMBER \
+              -t $IMAGE_NAME:latest \
+              --push .
+          """
         }
-
-        stage('Deploy to EC2 (Main Only)') {
-            when {
-                branch 'main'
-            }
-            steps {
-                sshagent(['ec2-ssh']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} "
-
-                            docker pull $IMAGE_NAME:latest &&
-                            docker stop sparta || true &&
-                            docker rm sparta || true &&
-                            docker run -d -p 80:3000 --name sparta $IMAGE_NAME:latest
-                        "
-                    """
-                }
-            }
-        }
+      }
     }
+
+    stage('Merge to Main (Promotion Job Only)') {
+      when {
+        expression { env.JOB_NAME == "sparta-promote-main" }
+      }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: GIT_CREDS,
+          usernameVariable: 'GIT_USER',
+          passwordVariable: 'GIT_TOKEN'
+        )]) {
+          sh """
+            git config user.email "jenkins@local"
+            git config user.name "Jenkins"
+
+            git checkout main
+            git pull https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
+
+            git merge origin/${BRANCH_NAME}
+
+            git push https://$GIT_USER:$GIT_TOKEN@github.com/jrodga/sparta-with-jenkins.git main
+          """
+        }
+      }
+    }
+
+    stage('Deploy to EC2 (Main Only)') {
+      when {
+        branch 'main'
+      }
+      steps {
+        sshagent(credentials: ['ec2-ssh']) {
+          sh """
+            ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP '
+              docker pull $IMAGE_NAME:latest &&
+              docker compose down &&
+              docker compose up -d
+            '
+          """
+        }
+      }
+    }
+
+  }
 }
