@@ -1,1 +1,0 @@
-# sparta-with-jenkins
