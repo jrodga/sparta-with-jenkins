@@ -218,7 +218,7 @@ Your Laptop
 configuration for your first job to chek it work:
 - select new job
 - type: pipeline 
-![img](../img-documentation/new-jenkins-doc.png)
+![img](./img-documentation/new-jenkins-doc.png)
 
 # PHASE 2 — Build Sparta App Docker Image with Jenkins (Clean Start)
 
@@ -326,7 +326,7 @@ Step 1/...
 Successfully built ...
 Successfully tagged jrodga1604/sparta-app:latest
 ```
-![img](../img-documentation/succes-first-job.png)
+![img](./img-documentation/succes-first-job.png)
 
 ##
 ### STEP 6 — Verify on Host
@@ -335,7 +335,7 @@ Run on your machine:
 ```bash
 docker images
 ```
-![img](<../img-documentation/Screenshot 2026-02-12 at 17.30.44.png>)
+![img](<./img-documentation/Screenshot 2026-02-12 at 17.30.44.png>)
 
 # PHASE 3 — Push Docker Image to Docker Hub
 
@@ -376,7 +376,7 @@ Create:
 Name: jenkins-ci
 Permissions: Read & Write
 ```
-![img](<../img-documentation/Screenshot 2026-02-12 at 17.45.24.png>)
+![img](<./img-documentation/Screenshot 2026-02-12 at 17.45.24.png>)
 **Copy the token.**
 ##
 ### STEP 2 — Add Docker Hub Credentials in Jenkins
@@ -398,7 +398,7 @@ Choose:
 - Description: Docker Hub CI
 
 **Save.**
-![img](../img-documentation/token.png)
+![img](./img-documentation/token.png)
 ##
 ### STEP 3 — Update Jenkinsfile
 
@@ -726,7 +726,7 @@ You will see:
 ```nginx
 Forwarding https://abcd-1234.ngrok.io -> http://localhost:8080
 ```
-![img](<../img-documentation/Screenshot 2026-02-13 at 08.29.39.png>)
+![img](<./img-documentation/Screenshot 2026-02-13 at 08.29.39.png>)
 Copy the HTTPS URL.
 ##
 ### Configure GitHub Webhook
@@ -1018,7 +1018,7 @@ Launch EC2:
 
     - 80 (depploy updates)
 
-![img](../img-documentation/sg.png)
+![img](./img-documentation/sg.png)
 
 - I use this from anywhere because it is experimental and for practice purposes, **not suitable for production.**
 ### Install Docker on EC2
@@ -1040,7 +1040,7 @@ Log out and back in.
 ```bash
 docker --version
 ```
-![img](../img-documentation/docker-version.png)
+![img](./img-documentation/docker-version.png)
 ##
 ### STEP 2 — Create docker-compose.yml on EC2
 
@@ -1048,7 +1048,7 @@ On EC2:
 ```bash
 nano docker-compose.yml
 ```
-![img](../img-documentation/nano-document.png)
+![img](./img-documentation/nano-document.png)
 
 ##
 ### STEP 3 — Test Manual Deployment
@@ -1058,7 +1058,7 @@ docker pull jrodga1604/sparta-app:latest
 docker compose up -d
 docker ps
 ```
-![img](../img-documentation/docker-runing.png)
+![img](./img-documentation/docker-runing.png)
 
 Visit:
 ```cpp
@@ -1066,7 +1066,7 @@ http://EC2_PUBLIC_IP:3000
 ```
 
 If working → EC2 is ready.
-![img](../img-documentation/sparta-working-ec2.png)
+![img](./img-documentation/sparta-working-ec2.png)
 ##
 ### STEP 4 — Add SSH Credentials in Jenkins
 
@@ -1086,7 +1086,7 @@ SSH Username with private key
 - ID: ec2-ssh
 
 - Add the value of your pem key (**DO NOT SHARE**)
-![img](../img-documentation/jenkis-shh.png)
+![img](./img-documentation/jenkis-shh.png)
 
 **Save.**
 
@@ -1165,7 +1165,7 @@ Otherwise it won’t be able to merge.
 ### Add GitHub Credentials in Jenkins
 
 Manage Jenkins → Credentials → Global → Add
-![img](../img-documentation/token-github.png)
+![img](./img-documentation/token-github.png)
 Type:
 ```nginx
 Username + Personal Access Token
@@ -1180,7 +1180,7 @@ You need a GitHub Personal Access Token with:
 ``` nginx
 repo
 ```
-![img](../img-documentation/repo.png)
+![img](./img-documentation/repo.png)
 permissions.
 ##
 ### Modify Job 1 Jenkinsfile (CI Feature)
